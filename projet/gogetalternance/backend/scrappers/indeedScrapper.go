@@ -18,7 +18,6 @@ func RunIndeedScrapper(browser *rod.Browser) {
 	for _, kw := range Keywords {
 		fmt.Printf("\n--- Recherche Indeed: %s ---\n", kw)
 
-		// On teste sur 1 seule page au début pour éviter le blocage
 		for page := 1; page <= 1; page++ {
 			offres := ScrapeIndeedListingPage(browser, page, kw)
 			if len(offres) == 0 {
@@ -32,19 +31,16 @@ func RunIndeedScrapper(browser *rod.Browser) {
 
 	fmt.Printf("\nPhase 1 Indeed terminée: %d offres trouvées.\n", len(allIndeedResults))
 
-	// --- NOUVEAUTÉ : Appels de fonction pour écrire les données ---
 	if len(allIndeedResults) > 0 {
 		fmt.Println("Création du fichier CSV Indeed...")
 
-		// On s'assure que le dossier "data" existe
 		os.MkdirAll("data", os.ModePerm)
 
-		// Appel direct à ta fonction présente dans wttjScrapper.go
 		saveToCSV("data/offres_indeed.csv", allIndeedResults, false)
 
-		fmt.Println("✅ Données Indeed sauvegardées avec succès dans data/offres_indeed.csv !")
+		fmt.Println("Données Indeed sauvegardées avec succès !")
 	} else {
-		fmt.Println("⚠️ Aucune offre Indeed à sauvegarder.")
+		fmt.Println("⚠Aucune offre Indeed à sauvegarder.")
 	}
 }
 
