@@ -225,5 +225,3 @@ func parseLocalisationDynamique(texteCarte string) string {
 
 	return "France"
 }
-
-// Les fonctions CSV en commentaire à la fin ont été laissées telles quelles (car elles sont gérées par ton utils.go)

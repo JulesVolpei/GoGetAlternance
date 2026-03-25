@@ -39,7 +39,7 @@ func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string) {
 
 		fmt.Println("Données Indeed sauvegardées avec succès !")
 	} else {
-		fmt.Println("⚠ Aucune offre Indeed à sauvegarder.")
+		fmt.Println("Aucune offre Indeed à sauvegarder.")
 	}
 }
 
