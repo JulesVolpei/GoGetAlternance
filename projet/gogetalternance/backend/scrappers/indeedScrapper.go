@@ -2,7 +2,7 @@ package scrappers
 
 import (
 	"fmt"
-	"os" // <-- Ajout obligatoire pour créer le dossier
+	"os"
 	"strings"
 	"time"
 
@@ -11,11 +11,11 @@ import (
 
 const IndeedBaseURL = "https://fr.indeed.com"
 
-func RunIndeedScrapper(browser *rod.Browser) {
+func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string) {
 	fmt.Println("Démarrage du scraping Indeed...")
 	var allIndeedResults []JobOffer
 
-	for _, kw := range Keywords {
+	for _, kw := range keywordsToSearch {
 		fmt.Printf("\n--- Recherche Indeed: %s ---\n", kw)
 
 		for page := 1; page <= 1; page++ {
@@ -26,7 +26,6 @@ func RunIndeedScrapper(browser *rod.Browser) {
 			allIndeedResults = append(allIndeedResults, offres...)
 			randomSleep(3, 6)
 		}
-
 	}
 
 	fmt.Printf("\nPhase 1 Indeed terminée: %d offres trouvées.\n", len(allIndeedResults))
@@ -40,7 +39,7 @@ func RunIndeedScrapper(browser *rod.Browser) {
 
 		fmt.Println("Données Indeed sauvegardées avec succès !")
 	} else {
-		fmt.Println("⚠Aucune offre Indeed à sauvegarder.")
+		fmt.Println("⚠ Aucune offre Indeed à sauvegarder.")
 	}
 }
 

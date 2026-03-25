@@ -12,10 +12,6 @@ import (
 
 const BaseURL = "https://www.welcometothejungle.com"
 
-var Keywords = []string{
-	"data",
-}
-
 var urlContractMap = map[string]string{
 	"alternance": "apprenticeship",
 	"stage":      "internship",
@@ -40,14 +36,14 @@ type JobOffer struct {
 	Description     string
 }
 
-func RunWTTJScrapper(browser *rod.Browser) {
+func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string) {
 	fmt.Println("Démarrage du scraping WTTJ...")
 
 	var allResults []JobOffer
 	seenLinks := make(map[string]bool)
 
-	for _, kw := range Keywords {
-		fmt.Printf("\n--- Recherche: %s ---\n", kw)
+	for _, kw := range keywordsToSearch {
+		fmt.Printf("\n--- Recherche WTTJ: %s ---\n", kw)
 		for page := 1; page <= PagesPerKeyword; page++ {
 			offres := scrapeListingPage(browser, page, kw)
 			if len(offres) == 0 {
@@ -64,12 +60,15 @@ func RunWTTJScrapper(browser *rod.Browser) {
 		}
 	}
 
-	fmt.Printf("\nPhase 1 terminée: %d offres uniques trouvées.\n", len(allResults))
+	fmt.Printf("\nPhase 1 WTTJ terminée: %d offres uniques trouvées.\n", len(allResults))
 
-	// Sauvegarde intermédiaire
-	os.MkdirAll("data", os.ModePerm)
-	saveToCSV("data/offres_wttj_listings_only.csv", allResults, false)
-	fmt.Println("Sauvegarde intermédiaire effectuée.")
+	if len(allResults) > 0 {
+		os.MkdirAll("data", os.ModePerm)
+		saveToCSV("data/offres_wttj.csv", allResults, false)
+		fmt.Println("Données WTTJ sauvegardées avec succès !")
+	} else {
+		fmt.Println("Aucune offre WTTJ à sauvegarder.")
+	}
 }
 
 func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string) []JobOffer {
@@ -114,7 +113,7 @@ func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string) []JobO
 
 		contratFinal := detectContrat(titre, contratAria)
 		if contratFinal == "Non précisé" {
-			continue // On passe directement à l'offre suivante
+			continue
 		}
 
 		lienFinal := *href
@@ -125,7 +124,7 @@ func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string) []JobO
 		offres = append(offres, JobOffer{
 			Titre:           titre,
 			Entreprise:      parseEntreprise(*href),
-			Contrat:         contratFinal, // On utilise la variable vérifiée
+			Contrat:         contratFinal,
 			Localisation:    parseLocalisationDynamique(carteText),
 			Lien:            lienFinal,
 			DateScraping:    time.Now().Format("2006-01-02"),
@@ -227,45 +226,4 @@ func parseLocalisationDynamique(texteCarte string) string {
 	return "France"
 }
 
-//func randomSleep(min, max float64) {
-//	sleepTime := min + rand.Float64()*(max-min)
-//	time.Sleep(time.Duration(sleepTime * float64(time.Second)))
-//}
-//
-//func createCSVWithHeaders(path string) {
-//	file, err := os.Create(path)
-//	if err != nil {
-//		log.Fatal("Impossible de créer le CSV:", err)
-//	}
-//	defer file.Close()
-//
-//	writer := csv.NewWriter(file)
-//	defer writer.Flush()
-//	writer.Write([]string{"titre", "entreprise", "contrat", "localisation", "lien", "date_scraping", "source", "mot_cle_recherche", "description"})
-//}
-//
-//func appendSingleToCSV(path string, offre JobOffer) {
-//	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
-//	if err != nil {
-//		log.Println("Erreur ouverture CSV append:", err)
-//		return
-//	}
-//	defer file.Close()
-//
-//	writer := csv.NewWriter(file)
-//	defer writer.Flush()
-//
-//	desc := strings.ReplaceAll(offre.Description, "\n", " ")
-//
-//	writer.Write([]string{
-//		offre.Titre, offre.Entreprise, offre.Contrat, offre.Localisation,
-//		offre.Lien, offre.DateScraping, offre.Source, offre.MotCleRecherche, desc,
-//	})
-//}
-//
-//func saveToCSV(path string, offres []JobOffer, includeDesc bool) {
-//	createCSVWithHeaders(path)
-//	for _, o := range offres {
-//		appendSingleToCSV(path, o)
-//	}
-//}
+// Les fonctions CSV en commentaire à la fin ont été laissées telles quelles (car elles sont gérées par ton utils.go)
