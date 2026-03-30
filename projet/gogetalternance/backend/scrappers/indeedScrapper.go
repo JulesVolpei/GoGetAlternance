@@ -2,16 +2,16 @@ package scrappers
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/stealth"
 )
 
 const IndeedBaseURL = "https://fr.indeed.com"
 
-func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string) {
+func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []JobOffer {
 	fmt.Println("Démarrage du scraping Indeed...")
 	var allIndeedResults []JobOffer
 
@@ -19,7 +19,7 @@ func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string) {
 		fmt.Printf("\n--- Recherche Indeed: %s ---\n", kw)
 
 		for page := 1; page <= 1; page++ {
-			offres := ScrapeIndeedListingPage(browser, page, kw)
+			offres := ScrapeIndeedListingPage(browser, page, kw, contractTypes)
 			if len(offres) == 0 {
 				break
 			}
@@ -29,30 +29,22 @@ func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string) {
 	}
 
 	fmt.Printf("\nPhase 1 Indeed terminée: %d offres trouvées.\n", len(allIndeedResults))
-
-	if len(allIndeedResults) > 0 {
-		fmt.Println("Création du fichier CSV Indeed...")
-
-		os.MkdirAll("data", os.ModePerm)
-
-		saveToCSV("data/offres_indeed.csv", allIndeedResults, false)
-
-		fmt.Println("Données Indeed sauvegardées avec succès !")
-	} else {
-		fmt.Println("Aucune offre Indeed à sauvegarder.")
-	}
+	return allIndeedResults
 }
 
-func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string) []JobOffer {
+func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []JobOffer {
 	start := (pageNum - 1) * 10
 	kwURL := strings.ReplaceAll(keyword, " ", "+")
+
 	scParam := "0kf%3Aattr%28CPAHG%7CQADT5%7CVDTG7%252COR%29%3B"
 	url := fmt.Sprintf("%s/jobs?q=%s&sc=%s&start=%d", IndeedBaseURL, kwURL, scParam, start)
 
-	page := browser.MustPage(url)
+	page := stealth.MustPage(browser)
 	defer page.MustClose()
 
-	err := page.Timeout(15*time.Second).WaitElementsMoreThan(`.job_seen_beacon`, 0)
+	page.MustNavigate(url)
+
+	err := page.Timeout(20*time.Second).WaitElementsMoreThan(`.job_seen_beacon`, 0)
 	if err != nil {
 		fmt.Printf("    Page %d: timeout (Probablement un Captcha Cloudflare !)\n", pageNum)
 		return nil
@@ -62,6 +54,12 @@ func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string) 
 
 	elements := page.MustElements(`.job_seen_beacon`)
 	fmt.Printf("    Page %d: %d offres trouvées\n", pageNum, len(elements))
+
+	var capitalizedContracts []string
+	for _, c := range contractTypes {
+		capitalizedContracts = append(capitalizedContracts, strings.Title(c))
+	}
+	contratFormatte := strings.Join(capitalizedContracts, "/")
 
 	var offres []JobOffer
 	for _, el := range elements {
@@ -94,7 +92,7 @@ func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string) 
 		offres = append(offres, JobOffer{
 			Titre:           strings.TrimSpace(titre),
 			Entreprise:      strings.TrimSpace(entreprise),
-			Contrat:         "Alternance/Stage",
+			Contrat:         contratFormatte, // Utilisation de la variable dynamique ici
 			Localisation:    strings.TrimSpace(localisation),
 			Lien:            lienFinal,
 			DateScraping:    time.Now().Format("2006-01-02"),

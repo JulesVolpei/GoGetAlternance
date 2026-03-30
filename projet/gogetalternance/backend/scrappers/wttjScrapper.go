@@ -2,8 +2,6 @@ package scrappers
 
 import (
 	"fmt"
-	"os"
-	_ "path/filepath"
 	"strings"
 	"time"
 
@@ -22,8 +20,6 @@ var urlContractMap = map[string]string{
 
 const PagesPerKeyword = 5
 
-var Contrats = []string{"alternance", "stage"}
-
 type JobOffer struct {
 	Titre           string
 	Entreprise      string
@@ -36,7 +32,7 @@ type JobOffer struct {
 	Description     string
 }
 
-func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string) {
+func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []JobOffer {
 	fmt.Println("Démarrage du scraping WTTJ...")
 
 	var allResults []JobOffer
@@ -45,7 +41,7 @@ func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string) {
 	for _, kw := range keywordsToSearch {
 		fmt.Printf("\n--- Recherche WTTJ: %s ---\n", kw)
 		for page := 1; page <= PagesPerKeyword; page++ {
-			offres := scrapeListingPage(browser, page, kw)
+			offres := scrapeListingPage(browser, page, kw, contractTypes)
 			if len(offres) == 0 {
 				break
 			}
@@ -61,21 +57,14 @@ func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string) {
 	}
 
 	fmt.Printf("\nPhase 1 WTTJ terminée: %d offres uniques trouvées.\n", len(allResults))
-
-	if len(allResults) > 0 {
-		os.MkdirAll("data", os.ModePerm)
-		saveToCSV("data/offres_wttj.csv", allResults, false)
-		fmt.Println("Données WTTJ sauvegardées avec succès !")
-	} else {
-		fmt.Println("Aucune offre WTTJ à sauvegarder.")
-	}
+	return allResults
 }
 
-func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string) []JobOffer {
+func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []JobOffer {
 	kwURL := strings.ReplaceAll(keyword, " ", "+")
 
 	contractQuery := ""
-	for i, c := range Contrats {
+	for i, c := range contractTypes {
 		if val, ok := urlContractMap[strings.ToLower(c)]; ok {
 			contractQuery += fmt.Sprintf("&refinementList%%5Bcontract_type%%5D%%5B%d%%5D=%s", i, val)
 		}
@@ -111,7 +100,7 @@ func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string) []JobO
 
 		titre, contratAria := parseAriaLabel(*ariaLabel)
 
-		contratFinal := detectContrat(titre, contratAria)
+		contratFinal := detectContrat(titre, contratAria, contractTypes)
 		if contratFinal == "Non précisé" {
 			continue
 		}
@@ -163,13 +152,13 @@ func parseAriaLabel(ariaLabel string) (string, string) {
 	return strings.TrimSpace(texte), ""
 }
 
-func detectContrat(titre, contratAria string) string {
+func detectContrat(titre, contratAria string, contractTypes []string) string {
 	if contratAria != "" {
 		return contratAria
 	}
 	titreLower := strings.ToLower(titre)
-	for _, c := range Contrats {
-		if strings.Contains(titreLower, c) {
+	for _, c := range contractTypes {
+		if strings.Contains(titreLower, strings.ToLower(c)) {
 			return strings.Title(c)
 		}
 	}

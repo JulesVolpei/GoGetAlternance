@@ -3,7 +3,6 @@ package scrappers
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -44,24 +43,27 @@ type ftOffre struct {
 	} `json:"origineOffre"`
 }
 
-func RunFranceTravailScrapper(keywordsToSearch []string) {
-	fmt.Println("\n--- Démarrage du scraping France Travail ---")
+var contractTypeMap = map[string]string{
+	"alternance": "E1",
+	"stage":      "E2",
+}
+
+func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string) []JobOffer {
+	fmt.Println("\n--- Démarrage du scraping France Travail (Filtre strict E1) ---")
 
 	clientID := os.Getenv("FT_CLIENT_ID")
 	clientSecret := os.Getenv("FT_CLIENT_SECRET")
 
 	if clientID == "" || clientSecret == "" {
 		fmt.Println("ERREUR : FT_CLIENT_ID ou FT_CLIENT_SECRET manquants.")
-		fmt.Println("Crée un compte sur francetravail.io pour obtenir tes clés.")
-		return
+		return nil
 	}
 
 	token, err := getFTToken(clientID, clientSecret)
 	if err != nil {
-		fmt.Printf("Erreur d'authentification France Travail : %v\n", err)
-		return
+		fmt.Printf("Erreur d'authentification : %v\n", err)
+		return nil
 	}
-	fmt.Println("Authentification réussie !")
 
 	var allFTOffers []JobOffer
 	seenIDs := make(map[string]bool)
@@ -71,11 +73,10 @@ func RunFranceTravailScrapper(keywordsToSearch []string) {
 
 		for start := 0; start < FTMaxOffres; start += FTPageSize {
 			end := start + FTPageSize - 1
-			fmt.Printf("  Requête page %d-%d...\n", start, end)
 
-			offresBrutes := fetchFTOffers(token, kw, start, end)
+			offresBrutes := fetchFTOffers(token, kw, start, end, contractTypes)
+
 			if len(offresBrutes) == 0 {
-				fmt.Println("  Fin des résultats pour ce mot-clé.")
 				break
 			}
 
@@ -98,29 +99,51 @@ func RunFranceTravailScrapper(keywordsToSearch []string) {
 					newInPage++
 				}
 			}
-
-			fmt.Printf("  + %d nouvelles offres.\n", newInPage)
-
+			fmt.Printf("  Page %d-%d: %d offres E1 trouvées.\n", start, end, newInPage)
 			if len(offresBrutes) < FTPageSize {
 				break
 			}
-
 			time.Sleep(1 * time.Second)
 		}
 	}
-
-	fmt.Printf("\nPhase France Travail terminée: %d offres trouvées.\n", len(allFTOffers))
-
-	if len(allFTOffers) > 0 {
-		fmt.Println("Création du fichier CSV France Travail...")
-		os.MkdirAll("data", os.ModePerm)
-		saveToCSV("data/offres_francetravail.csv", allFTOffers, true)
-		fmt.Println("Données France Travail sauvegardées avec succès !")
-	} else {
-		fmt.Println("Aucune offre France Travail à sauvegarder.")
-	}
+	return allFTOffers
 }
 
+func fetchFTOffers(token, keyword string, start, end int, contractTypes []string) []ftOffre {
+	reqURL, _ := url.Parse(FTAPIURL)
+	q := reqURL.Query()
+	q.Add("motsCles", keyword)
+	q.Add("range", fmt.Sprintf("%d-%d", start, end))
+
+	for _, ct := range contractTypes {
+		if mapped, ok := contractTypeMap[strings.ToLower(ct)]; ok {
+			q.Add("natureContrat", mapped)
+		}
+	}
+
+	reqURL.RawQuery = q.Encode()
+
+	req, _ := http.NewRequest("GET", reqURL.String(), nil)
+	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Accept", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 204 {
+		return nil
+	}
+
+	var offreResp ftOffreResponse
+	json.NewDecoder(resp.Body).Decode(&offreResp)
+	return offreResp.Resultats
+}
+
+// Fonction d'obtention de token (inchangée)
 func getFTToken(clientID, clientSecret string) (string, error) {
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
@@ -141,45 +164,7 @@ func getFTToken(clientID, clientSecret string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("statut %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
 	var authResp ftAuthResponse
 	json.NewDecoder(resp.Body).Decode(&authResp)
 	return authResp.AccessToken, nil
-}
-
-func fetchFTOffers(token, keyword string, start, end int) []ftOffre {
-	reqURL, _ := url.Parse(FTAPIURL)
-	q := reqURL.Query()
-	q.Add("motsCles", keyword)
-	q.Add("range", fmt.Sprintf("%d-%d", start, end))
-	reqURL.RawQuery = q.Encode()
-
-	req, _ := http.NewRequest("GET", reqURL.String(), nil)
-	req.Header.Add("Authorization", "Bearer "+token)
-	req.Header.Add("Accept", "application/json")
-
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("  Erreur de requête:", err)
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 204 {
-		return nil // 204 No Content (Aucun résultat trouvé)
-	}
-
-	if resp.StatusCode != 200 && resp.StatusCode != 206 {
-		fmt.Printf("  Erreur API: Statut %d\n", resp.StatusCode)
-		return nil
-	}
-
-	var offreResp ftOffreResponse
-	json.NewDecoder(resp.Body).Decode(&offreResp)
-	return offreResp.Resultats
 }
