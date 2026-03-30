@@ -33,13 +33,10 @@ type JobOffer struct {
 }
 
 func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []JobOffer {
-	fmt.Println("Démarrage du scraping WTTJ...")
-
 	var allResults []JobOffer
 	seenLinks := make(map[string]bool)
 
 	for _, kw := range keywordsToSearch {
-		fmt.Printf("\n--- Recherche WTTJ: %s ---\n", kw)
 		for page := 1; page <= PagesPerKeyword; page++ {
 			offres := scrapeListingPage(browser, page, kw, contractTypes)
 			if len(offres) == 0 {
@@ -56,7 +53,8 @@ func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string, contractTy
 		}
 	}
 
-	fmt.Printf("\nPhase 1 WTTJ terminée: %d offres uniques trouvées.\n", len(allResults))
+	fmt.Printf("[WTTJ] %d offres trouvées\n", len(allResults))
+
 	return allResults
 }
 
@@ -78,14 +76,12 @@ func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string, contra
 
 	err := page.Timeout(10*time.Second).WaitElementsMoreThan(`li[data-testid="search-results-list-item-wrapper"]`, 0)
 	if err != nil {
-		fmt.Printf("    Page %d: timeout ou vide\n", pageNum)
 		return nil
 	}
 
 	time.Sleep(2 * time.Second)
 
 	elements := page.MustElements(`li[data-testid="search-results-list-item-wrapper"]`)
-	fmt.Printf("    Page %d: %d offres trouvées\n", pageNum, len(elements))
 
 	var offres []JobOffer
 	for _, el := range elements {

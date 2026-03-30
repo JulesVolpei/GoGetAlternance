@@ -49,19 +49,17 @@ var contractTypeMap = map[string]string{
 }
 
 func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string) []JobOffer {
-	fmt.Println("\n--- Démarrage du scraping France Travail (Filtre strict E1) ---")
-
 	clientID := os.Getenv("FT_CLIENT_ID")
 	clientSecret := os.Getenv("FT_CLIENT_SECRET")
 
 	if clientID == "" || clientSecret == "" {
-		fmt.Println("ERREUR : FT_CLIENT_ID ou FT_CLIENT_SECRET manquants.")
+		fmt.Println("[France Travail] ERREUR : FT_CLIENT_ID ou FT_CLIENT_SECRET manquants.")
 		return nil
 	}
 
 	token, err := getFTToken(clientID, clientSecret)
 	if err != nil {
-		fmt.Printf("Erreur d'authentification : %v\n", err)
+		fmt.Printf("[France Travail] Erreur d'authentification : %v\n", err)
 		return nil
 	}
 
@@ -69,8 +67,6 @@ func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string)
 	seenIDs := make(map[string]bool)
 
 	for _, kw := range keywordsToSearch {
-		fmt.Printf("\nRecherche France Travail: %s\n", kw)
-
 		for start := 0; start < FTMaxOffres; start += FTPageSize {
 			end := start + FTPageSize - 1
 
@@ -80,7 +76,6 @@ func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string)
 				break
 			}
 
-			newInPage := 0
 			for _, o := range offresBrutes {
 				if !seenIDs[o.Id] {
 					seenIDs[o.Id] = true
@@ -96,16 +91,19 @@ func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string)
 						Source:          "France Travail",
 						MotCleRecherche: kw,
 					})
-					newInPage++
 				}
 			}
-			fmt.Printf("  Page %d-%d: %d offres E1 trouvées.\n", start, end, newInPage)
+
 			if len(offresBrutes) < FTPageSize {
 				break
 			}
 			time.Sleep(1 * time.Second)
 		}
 	}
+
+	// Affichage unique et clair pour le parallélisme
+	fmt.Printf("[France Travail] %d offres trouvées\n", len(allFTOffers))
+
 	return allFTOffers
 }
 
@@ -143,7 +141,6 @@ func fetchFTOffers(token, keyword string, start, end int, contractTypes []string
 	return offreResp.Resultats
 }
 
-// Fonction d'obtention de token (inchangée)
 func getFTToken(clientID, clientSecret string) (string, error) {
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")

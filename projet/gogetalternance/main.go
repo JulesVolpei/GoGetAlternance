@@ -38,11 +38,12 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(3)
+	wg.Add(4)
 
 	var wttjOffres []scrappers.JobOffer
 	var indeedOffres []scrappers.JobOffer
 	var ftOffres []scrappers.JobOffer
+	var helloWorkOffres []scrappers.JobOffer
 
 	fmt.Println("Scrapping en parallèle ...")
 
@@ -61,6 +62,11 @@ func main() {
 		ftOffres = scrappers.RunFranceTravailScrapper(motsCles, typesContrats)
 	}()
 
+	go func() {
+		defer wg.Done()
+		helloWorkOffres = scrappers.RunHelloWorkScrapper(browser, motsCles, typesContrats)
+	}()
+
 	wg.Wait()
 
 	//scrappers.RunWTTJScrapper(browser, motsCles)
@@ -73,6 +79,7 @@ func main() {
 	toutesLesOffres = append(toutesLesOffres, wttjOffres...)
 	toutesLesOffres = append(toutesLesOffres, indeedOffres...)
 	toutesLesOffres = append(toutesLesOffres, ftOffres...)
+	toutesLesOffres = append(toutesLesOffres, helloWorkOffres...)
 
 	fmt.Printf("Total global des offres récupérées : %d\n", len(toutesLesOffres))
 

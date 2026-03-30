@@ -10,25 +10,36 @@ import (
 )
 
 const IndeedBaseURL = "https://fr.indeed.com"
+const IndeedPagesPerKeyword = 3
 
 func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []JobOffer {
-	fmt.Println("Démarrage du scraping Indeed...")
 	var allIndeedResults []JobOffer
+	seenLinks := make(map[string]bool)
 
 	for _, kw := range keywordsToSearch {
-		fmt.Printf("\n--- Recherche Indeed: %s ---\n", kw)
-
-		for page := 1; page <= 1; page++ {
+		for page := 1; page <= IndeedPagesPerKeyword; page++ {
 			offres := ScrapeIndeedListingPage(browser, page, kw, contractTypes)
+
 			if len(offres) == 0 {
 				break
 			}
-			allIndeedResults = append(allIndeedResults, offres...)
+
+			for _, off := range offres {
+				if !seenLinks[off.Lien] {
+					seenLinks[off.Lien] = true
+					allIndeedResults = append(allIndeedResults, off)
+				}
+			}
+
+			if len(offres) < 10 {
+				break
+			}
+
 			randomSleep(3, 6)
 		}
 	}
 
-	fmt.Printf("\nPhase 1 Indeed terminée: %d offres trouvées.\n", len(allIndeedResults))
+	fmt.Printf("[Indeed] %d offres trouvées\n", len(allIndeedResults))
 	return allIndeedResults
 }
 
@@ -46,14 +57,12 @@ func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string, 
 
 	err := page.Timeout(20*time.Second).WaitElementsMoreThan(`.job_seen_beacon`, 0)
 	if err != nil {
-		fmt.Printf("    Page %d: timeout (Probablement un Captcha Cloudflare !)\n", pageNum)
 		return nil
 	}
 
 	time.Sleep(2 * time.Second)
 
 	elements := page.MustElements(`.job_seen_beacon`)
-	fmt.Printf("    Page %d: %d offres trouvées\n", pageNum, len(elements))
 
 	var capitalizedContracts []string
 	for _, c := range contractTypes {
@@ -92,7 +101,7 @@ func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string, 
 		offres = append(offres, JobOffer{
 			Titre:           strings.TrimSpace(titre),
 			Entreprise:      strings.TrimSpace(entreprise),
-			Contrat:         contratFormatte, // Utilisation de la variable dynamique ici
+			Contrat:         contratFormatte,
 			Localisation:    strings.TrimSpace(localisation),
 			Lien:            lienFinal,
 			DateScraping:    time.Now().Format("2006-01-02"),
