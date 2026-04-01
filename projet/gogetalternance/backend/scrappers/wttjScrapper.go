@@ -2,6 +2,7 @@ package scrappers
 
 import (
 	"fmt"
+	"gogetalternance/backend/models"
 	"strings"
 	"time"
 
@@ -20,20 +21,8 @@ var urlContractMap = map[string]string{
 
 const PagesPerKeyword = 5
 
-type JobOffer struct {
-	Titre           string
-	Entreprise      string
-	Contrat         string
-	Localisation    string
-	Lien            string
-	DateScraping    string
-	Source          string
-	MotCleRecherche string
-	Description     string
-}
-
-func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []JobOffer {
-	var allResults []JobOffer
+func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []models.JobOffer {
+	var allResults []models.JobOffer
 	seenLinks := make(map[string]bool)
 
 	for _, kw := range keywordsToSearch {
@@ -58,7 +47,7 @@ func RunWTTJScrapper(browser *rod.Browser, keywordsToSearch []string, contractTy
 	return allResults
 }
 
-func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []JobOffer {
+func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []models.JobOffer {
 	kwURL := strings.ReplaceAll(keyword, " ", "+")
 
 	contractQuery := ""
@@ -83,7 +72,7 @@ func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string, contra
 
 	elements := page.MustElements(`li[data-testid="search-results-list-item-wrapper"]`)
 
-	var offres []JobOffer
+	var offres []models.JobOffer
 	for _, el := range elements {
 		lienEl, err := el.Element(`a[aria-label]`)
 		if err != nil {
@@ -106,7 +95,7 @@ func scrapeListingPage(browser *rod.Browser, pageNum int, keyword string, contra
 			lienFinal = BaseURL + lienFinal
 		}
 
-		offres = append(offres, JobOffer{
+		offres = append(offres, models.JobOffer{
 			Titre:           titre,
 			Entreprise:      parseEntreprise(*href),
 			Contrat:         contratFinal,

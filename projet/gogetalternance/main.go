@@ -1,111 +1,125 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"gogetalternance/backend/scrappers"
-	"log"
-	"os"
+	"net/http"
 	"sync"
 
+	"gogetalternance/backend/models"
+	"gogetalternance/backend/scrappers"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	fmt.Println("=== Initialisation de l'application ===")
-
-	err := godotenv.Load()
+	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatal("Erreur lors du chargement du fichier .env")
+		fmt.Println("Fichier .env non trouvé")
 	}
 
-	navigateurLocal := "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-	u := launcher.New().
-		Bin(navigateurLocal).
-		Leakless(false).
-		Headless(true).
-		NoSandbox(true).
-		Set("disable-dev-shm-usage").
-		MustLaunch()
+	r := gin.Default()
 
-	browser := rod.New().ControlURL(u).MustConnect()
-	defer browser.MustClose()
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:5173"}
+	config.AllowMethods = []string{"POST", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Type"}
+	r.Use(cors.New(config))
 
-	motsCles := []string{"Data analyst"}
-	typesContrats := []string{"alternance", "stage"}
+	r.POST("/api/cherche", func(c *gin.Context) {
+		var req models.SearchRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format JSON invalide"})
+			return
+		}
 
-	var wg sync.WaitGroup
+		fmt.Println("-------------------------------------------------")
+		fmt.Printf("RECHERCHE : %v | CONTRATS : %v | PLATEFORMES : %v\n", req.Keywords, req.ContractTypes, req.Platforms)
+		fmt.Println("-------------------------------------------------")
 
-	wg.Add(4)
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		var allOffers []models.JobOffer
 
-	var wttjOffres []scrappers.JobOffer
-	var indeedOffres []scrappers.JobOffer
-	var ftOffres []scrappers.JobOffer
-	var helloWorkOffres []scrappers.JobOffer
+		navigateurLocal := "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+		u := launcher.New().
+			Bin(navigateurLocal).
+			Leakless(false).
+			Headless(true).
+			NoSandbox(true).
+			Set("disable-dev-shm-usage").
+			MustLaunch()
 
-	fmt.Println("Scrapping en parallèle ...")
+		browser := rod.New().ControlURL(u).MustConnect()
+		defer browser.MustClose()
 
-	go func() {
-		defer wg.Done()
-		wttjOffres = scrappers.RunWTTJScrapper(browser, motsCles, typesContrats)
-	}()
+		if contains(req.Platforms, "FranceTravail") {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				offers := scrappers.RunFranceTravailScrapper(req.Keywords, req.ContractTypes)
+				mu.Lock()
+				allOffers = append(allOffers, offers...)
+				mu.Unlock()
+			}()
+		}
 
-	go func() {
-		defer wg.Done()
-		indeedOffres = scrappers.RunIndeedScrapper(browser, motsCles, typesContrats)
-	}()
+		if contains(req.Platforms, "Welcome to the Jungle") {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				offers := scrappers.RunWTTJScrapper(browser, req.Keywords, req.ContractTypes)
+				mu.Lock()
+				allOffers = append(allOffers, offers...)
+				mu.Unlock()
+			}()
+		}
 
-	go func() {
-		defer wg.Done()
-		ftOffres = scrappers.RunFranceTravailScrapper(motsCles, typesContrats)
-	}()
+		if contains(req.Platforms, "HelloWork") {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-	go func() {
-		defer wg.Done()
-		helloWorkOffres = scrappers.RunHelloWorkScrapper(browser, motsCles, typesContrats)
-	}()
+				offers := scrappers.RunHelloWorkScrapper(browser, req.Keywords, req.ContractTypes)
 
-	wg.Wait()
+				mu.Lock()
+				allOffers = append(allOffers, offers...)
+				mu.Unlock()
+			}()
+		}
 
-	//scrappers.RunWTTJScrapper(browser, motsCles)
-	//scrappers.RunIndeedScrapper(browser, motsCles)
-	//scrappers.RunFranceTravailScrapper(motsCles)
+		if contains(req.Platforms, "Indeed") {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-	fmt.Println("=== Fin de l'application ===")
+				offers := scrappers.RunIndeedScrapper(browser, req.Keywords, req.ContractTypes)
 
-	var toutesLesOffres []scrappers.JobOffer
-	toutesLesOffres = append(toutesLesOffres, wttjOffres...)
-	toutesLesOffres = append(toutesLesOffres, indeedOffres...)
-	toutesLesOffres = append(toutesLesOffres, ftOffres...)
-	toutesLesOffres = append(toutesLesOffres, helloWorkOffres...)
+				mu.Lock()
+				allOffers = append(allOffers, offers...)
+				mu.Unlock()
+			}()
+		}
 
-	fmt.Printf("Total global des offres récupérées : %d\n", len(toutesLesOffres))
+		wg.Wait()
 
-	sauvegarderEnJSON(toutesLesOffres)
+		fmt.Printf("RECHERCHE TERMINÉE : %d offres trouvées au total.\n", len(allOffers))
+
+		c.JSON(http.StatusOK, allOffers)
+	})
+
+	fmt.Println("Serveur Go lancé sur http://localhost:8080")
+	r.Run(":8080")
 }
 
-func sauvegarderEnJSON(offres []scrappers.JobOffer) {
-	if len(offres) == 0 {
-		fmt.Println("Aucune offre à sauvegarder.")
-		return
+func contains(slice []string, item string) bool {
+	for _, a := range slice {
+		if a == item {
+			return true
+		}
 	}
-
-	os.MkdirAll("data", os.ModePerm)
-
-	file, err := os.Create("data/toutes_les_offres.json")
-	if err != nil {
-		log.Fatalf("Erreur lors de la création du fichier : %v", err)
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	err = encoder.Encode(offres)
-	if err != nil {
-		log.Fatalf("Erreur lors de l'encodage JSON : %v", err)
-	}
-
-	fmt.Println("Toutes les données ont été sauvegardées avec succès !")
+	return false
 }

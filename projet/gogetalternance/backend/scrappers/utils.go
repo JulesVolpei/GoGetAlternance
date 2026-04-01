@@ -2,6 +2,7 @@ package scrappers
 
 import (
 	"encoding/csv"
+	"gogetalternance/backend/models"
 	"log"
 	"math/rand"
 	"os"
@@ -21,7 +22,7 @@ func createCSVWithHeaders(path string) {
 	writer.Write([]string{"titre", "entreprise", "contrat", "localisation", "lien", "date_scraping", "source", "mot_cle_recherche", "description"})
 }
 
-func appendSingleToCSV(path string, offre JobOffer) {
+func appendSingleToCSV(path string, offre models.JobOffer) {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println("Erreur ouverture CSV append:", err)
@@ -40,16 +41,13 @@ func appendSingleToCSV(path string, offre JobOffer) {
 	})
 }
 
-func saveToCSV(path string, offres []JobOffer, includeDesc bool) {
+func saveToCSV(path string, offres []models.JobOffer, includeDesc bool) {
 	createCSVWithHeaders(path)
 	for _, o := range offres {
 		appendSingleToCSV(path, o)
 	}
 }
 
-// --- Autres Utilitaires ---
-
-// C'est aussi le bon endroit pour mettre ton randomSleep !
 func randomSleep(min, max float64) {
 	sleepTime := min + rand.Float64()*(max-min)
 	time.Sleep(time.Duration(sleepTime * float64(time.Second)))

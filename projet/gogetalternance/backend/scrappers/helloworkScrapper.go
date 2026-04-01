@@ -2,6 +2,7 @@ package scrappers
 
 import (
 	"fmt"
+	"gogetalternance/backend/models"
 	"strings"
 	"time"
 
@@ -36,8 +37,8 @@ func getHelloWorkContractParams(contractTypes []string) string {
 	return ""
 }
 
-func RunHelloWorkScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []JobOffer {
-	var allResults []JobOffer
+func RunHelloWorkScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []models.JobOffer {
+	var allResults []models.JobOffer
 	seenLinks := make(map[string]bool)
 
 	for _, kw := range keywordsToSearch {
@@ -68,7 +69,7 @@ func RunHelloWorkScrapper(browser *rod.Browser, keywordsToSearch []string, contr
 	return allResults
 }
 
-func scrapeHelloWorkPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []JobOffer {
+func scrapeHelloWorkPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []models.JobOffer {
 	kwURL := strings.ReplaceAll(keyword, " ", "+")
 	contractQuery := getHelloWorkContractParams(contractTypes)
 
@@ -92,7 +93,7 @@ func scrapeHelloWorkPage(browser *rod.Browser, pageNum int, keyword string, cont
 
 	elements := page.MustElements(`ul[aria-label="liste des offres"] > li`)
 
-	var offres []JobOffer
+	var offres []models.JobOffer
 	for _, el := range elements {
 		linkEl, err := el.Element(`a[data-cy="offerTitle"]`)
 		if err != nil {
@@ -129,7 +130,7 @@ func scrapeHelloWorkPage(browser *rod.Browser, pageNum int, keyword string, cont
 			contrat, _ = contractEl.Text()
 		}
 
-		offres = append(offres, JobOffer{
+		offres = append(offres, models.JobOffer{
 			Titre:           strings.TrimSpace(titre),
 			Entreprise:      strings.TrimSpace(entreprise),
 			Contrat:         strings.TrimSpace(contrat),

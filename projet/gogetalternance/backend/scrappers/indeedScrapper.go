@@ -2,6 +2,7 @@ package scrappers
 
 import (
 	"fmt"
+	"gogetalternance/backend/models"
 	"strings"
 	"time"
 
@@ -12,8 +13,8 @@ import (
 const IndeedBaseURL = "https://fr.indeed.com"
 const IndeedPagesPerKeyword = 3
 
-func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []JobOffer {
-	var allIndeedResults []JobOffer
+func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string, contractTypes []string) []models.JobOffer {
+	var allIndeedResults []models.JobOffer
 	seenLinks := make(map[string]bool)
 
 	for _, kw := range keywordsToSearch {
@@ -43,7 +44,7 @@ func RunIndeedScrapper(browser *rod.Browser, keywordsToSearch []string, contract
 	return allIndeedResults
 }
 
-func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []JobOffer {
+func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string, contractTypes []string) []models.JobOffer {
 	start := (pageNum - 1) * 10
 	kwURL := strings.ReplaceAll(keyword, " ", "+")
 
@@ -70,7 +71,7 @@ func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string, 
 	}
 	contratFormatte := strings.Join(capitalizedContracts, "/")
 
-	var offres []JobOffer
+	var offres []models.JobOffer
 	for _, el := range elements {
 		titleEl, err := el.Element(`a.jcs-JobTitle`)
 		if err != nil {
@@ -98,7 +99,7 @@ func ScrapeIndeedListingPage(browser *rod.Browser, pageNum int, keyword string, 
 			localisation, _ = locEl.Text()
 		}
 
-		offres = append(offres, JobOffer{
+		offres = append(offres, models.JobOffer{
 			Titre:           strings.TrimSpace(titre),
 			Entreprise:      strings.TrimSpace(entreprise),
 			Contrat:         contratFormatte,

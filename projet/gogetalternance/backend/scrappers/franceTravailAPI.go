@@ -3,6 +3,7 @@ package scrappers
 import (
 	"encoding/json"
 	"fmt"
+	"gogetalternance/backend/models"
 	"net/http"
 	"net/url"
 	"os"
@@ -48,7 +49,7 @@ var contractTypeMap = map[string]string{
 	"stage":      "E2",
 }
 
-func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string) []JobOffer {
+func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string) []models.JobOffer {
 	clientID := os.Getenv("FT_CLIENT_ID")
 	clientSecret := os.Getenv("FT_CLIENT_SECRET")
 
@@ -63,7 +64,7 @@ func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string)
 		return nil
 	}
 
-	var allFTOffers []JobOffer
+	var allFTOffers []models.JobOffer
 	seenIDs := make(map[string]bool)
 
 	for _, kw := range keywordsToSearch {
@@ -80,7 +81,7 @@ func RunFranceTravailScrapper(keywordsToSearch []string, contractTypes []string)
 				if !seenIDs[o.Id] {
 					seenIDs[o.Id] = true
 
-					allFTOffers = append(allFTOffers, JobOffer{
+					allFTOffers = append(allFTOffers, models.JobOffer{
 						Titre:           o.Intitule,
 						Entreprise:      o.Entreprise.Nom,
 						Contrat:         o.TypeContrat,
