@@ -4,8 +4,10 @@ import { SearchBar } from "@/components/SearchBar";
 import type { SearchData } from "@/components/SearchBar";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {useNavigate} from "react-router";
 
 const Index = () => {
+    const navigate = useNavigate(); // <-- 2. Initialisation du hook
     const searchMutation = useMutation({
         mutationFn: async (searchData: SearchData) => {
             const contractMapping: Record<string, string> = {
@@ -38,6 +40,7 @@ const Index = () => {
                 description: `${data?.length || 0} offres ont été récupérées.`,
             });
             console.log("Offres récupérées :", data);
+            navigate("/search", { state: { offers: data } });
         },
         onError: (error) => {
             toast.error("Oups, un problème est survenu.", {
